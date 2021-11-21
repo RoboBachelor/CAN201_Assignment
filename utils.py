@@ -51,6 +51,26 @@ def handle_remote_dict(local_dict, remote_dict:dict):
         else:
             local_dict[remote_key] = [remote_key, remote_record[1], "remote", remote_record[3]]
 
+def dict_to_str(dict_in:dict):
+    ret_str = str()
+    for record in dict_in.values():
+        ret_str += '|'.join(str(attribute) for attribute in record) + '\n'
+    return ret_str
+
+def str_to_dict(in_str:str):
+    ret_dict = dict()
+    for record_str in in_str.splitlines():
+        record_list = record_str.split('|')
+        ret_dict[os.path.normpath(record_list[0])] = record_list
+    return ret_dict
+
+'''
+
+def str_to_list(in_str:str):
+    out_list = []
+    for row in in_str.splitlines():
+        out_list.append(row.split())
+    return out_list
 
 def list_to_str(list_in):
     str = ''
@@ -58,21 +78,4 @@ def list_to_str(list_in):
         str += " ".join(attribute for attribute in row) + '\n'
     return str
 
-def dict_to_str(dict_in:dict):
-    ret_str = str()
-    for record in dict_in.values():
-        ret_str += " ".join(str(attribute) for attribute in record) + '\n'
-    return ret_str
-
-def str_to_dict(in_str:str):
-    ret_dict = dict()
-    for record_str in in_str.splitlines():
-        record_list = record_str.split()
-        ret_dict[os.path.normpath(record_list[0])] = record_list
-    return ret_dict
-
-def str_to_list(in_str:str):
-    out_list = []
-    for row in in_str.splitlines():
-        out_list.append(row.split())
-    return out_list
+'''
