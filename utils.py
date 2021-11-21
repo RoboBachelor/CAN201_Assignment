@@ -5,6 +5,9 @@ ignore = [".can201", ".downloading"]
 header_len = 1024
 chunk_len = 4096
 
+num_attribute = 4
+INDEX_KEY, INDEX_MD5, INDEX_STATE, INDEX_VER = tuple(range(num_attribute))
+
 def get_file_md5(fname):
     m = hashlib.md5()   #创建md5对象
     with open(fname,'rb') as fobj:
@@ -26,11 +29,16 @@ def scan_file(file_dict:dict, root, current):
             # Find a file
             md5_str = get_file_md5(access_path)
             if key_path in file_dict:
-                if md5_str != file_dict[key_path][1]:
-                    file_dict[key_path][2] = "local"
-                    file_dict[key_path][3] = int(file_dict[key_path][3]) + 1
+                if md5_str != file_dict[key_path][INDEX_MD5]:
+                    file_dict[key_path][INDEX_STATE] = "local"
+                    file_dict[key_path][INDEX_VER] = int(file_dict[key_path][INDEX_VER]) + 1
+                    file_dict[key_path][INDEX_MD5] = md5_str
             else:
-                file_dict[key_path] = [key_path, md5_str, "local", 1]
+                file_dict[key_path] = list(range(num_attribute))
+                file_dict[key_path][INDEX_KEY] = key_path
+                file_dict[key_path][INDEX_MD5] = md5_str
+                file_dict[key_path][INDEX_STATE] = "local"
+                file_dict[key_path][INDEX_VER] = 1
         if os.path.isdir(access_path):
             scan_file(file_dict, root, key_path)
 
@@ -38,18 +46,24 @@ def handle_remote_dict(local_dict, remote_dict:dict):
     for remote_key, remote_record in remote_dict.items():
         if remote_key in local_dict:
             # Different MD5
-            if remote_record[1] != local_dict[remote_key][1]:
-                local_dict[remote_key][2] = "remote"
-                local_dict[remote_key][3] = remote_record[3]
+            if remote_record[INDEX_MD5] != local_dict[remote_key][INDEX_MD5]:
+                local_dict[remote_key][INDEX_STATE] = "remote"
+                local_dict[remote_key][INDEX_VER] = remote_record[INDEX_VER]
+                local_dict[remote_key][INDEX_MD5] = remote_record[INDEX_MD5]
             # Same MD5
             else:
-                if local_dict[remote_key][2] == "local" and remote_record[2] == 'local':
-                    local_dict[remote_key][2] = "sync"
-                if remote_record[2] == "sync":
-                    local_dict[remote_key][2] = "sync"
-                local_dict[remote_key][3] = remote_record[3]
+                if local_dict[remote_key][INDEX_STATE] == "local" and remote_record[INDEX_STATE] == 'local':
+                    local_dict[remote_key][INDEX_STATE] = "sync"
+                if remote_record[INDEX_STATE] == "sync":
+                    local_dict[remote_key][INDEX_STATE] = "sync"
+                local_dict[remote_key][INDEX_VER] = remote_record[INDEX_VER]
         else:
-            local_dict[remote_key] = [remote_key, remote_record[1], "remote", remote_record[3]]
+            # New record is insert to our local dict
+            local_dict[remote_key] = list(range(num_attribute))
+            local_dict[remote_key][INDEX_KEY] = remote_key
+            local_dict[remote_key][INDEX_MD5] = remote_record[INDEX_MD5]
+            local_dict[remote_key][INDEX_STATE] = "remote"
+            local_dict[remote_key][INDEX_VER] = remote_record[INDEX_VER]
 
 def dict_to_str(dict_in:dict):
     ret_str = str()

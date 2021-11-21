@@ -77,12 +77,16 @@ while True:
                         chunk = conn.recv(min(file_size - received_len, chunk_len))
                         received_len += len(chunk)
                         f.write(chunk)
+                        if len(chunk) == 0:
+                            print("Server: Error: Received length is zero!")
                 md5_remote = get_file_md5(access_path + ".downloading")
-                if md5_remote == file_dict[file_key][1]:
+                if md5_remote == file_dict[file_key][INDEX_MD5]:
                     status = 'OK'
                     print("文件 %s 获取成功" % (access_path))
+                    if os.path.exists(access_path):
+                        os.remove(access_path)
                     os.rename(access_path + ".downloading", access_path)
-                    file_dict[file_key][2] = "sync"
+                    file_dict[file_key][INDEX_STATE] = "sync"
                     with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
                         f.write(role + '\n')
                         f.write(dict_to_str(file_dict))

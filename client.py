@@ -56,6 +56,8 @@ def client_app(ip_port):
                     chunk = sock.recv(min(server_msg_len - received_len, chunk_len))
                     server_msg += chunk
                     received_len += len(chunk)
+                    if len(chunk) == 0:
+                        print("Client: Error: Received length is zero!")
                 server_dict = str_to_dict(server_msg.decode())
                 print("服务器的响应头为：%s" % (str(server_header)))
                 print("消息长度：%d, 消息数据：\n%s" % (server_msg_len, str(server_dict)))
@@ -82,7 +84,7 @@ def client_app(ip_port):
                     server_header = sock.recv(header_len).decode().splitlines()[0].split()
                     if server_header[2] == 'OK':
                         print("文件 %s 发送成功" % (server_header[1]))
-                        file_dict[file_key][2] = "sync"
+                        file_dict[file_key][INDEX_STATE] = "sync"
                         with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
                             f.write(role + '\n')
                             f.write(dict_to_str(file_dict))
