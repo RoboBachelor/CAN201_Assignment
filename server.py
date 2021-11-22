@@ -33,7 +33,7 @@ while True:
         while True:     # 一个死循环，直到客户端发送‘exit’的信号，才关闭连接
 
             client_header_bin = conn.recv(header_len)
-            client_header = client_header_bin.decode().splitlines()[0].split()
+            client_header = client_header_bin.decode().splitlines()[0].split('|')
             print("Server: Client %s requests with header：%s" % (address, str(client_header)))
             if client_header[0] == "SYNC":
                 # Receive message
@@ -57,7 +57,7 @@ while True:
 
                 # Response to client
                 response_bin = file_dict_str.encode()
-                response_header_str = "SYNC-RE %d\n" % (len(response_bin))
+                response_header_str = "SYNC-RE|%d\n" % (len(response_bin))
                 response_header_bin = response_header_str.encode()
                 response_header_bin += b'\x00' * (header_len - len(response_header_bin))
                 conn.send(response_header_bin)
@@ -89,10 +89,23 @@ while True:
                     f.write(dict_to_str(file_dict))
 
                 # Response to client
-                response_str = "POST-RE %s %s\n" % (client_header[0], "OK")
+                response_str = "POST-RE|%s|%s\n" % (client_header[0], "OK")
                 response_bin = response_str.encode()
                 response_bin += b'\x00' * (header_len - len(response_bin))
                 conn.send(response_bin)
+
+            elif client_header[0] == 'GET':
+                file_key = os.path.normpath(client_header[1])
+                access_path = os.path.join(share_root, client_header[1])
+                file_size = os.path.getsize(access_path)
+
+                # Request header and content
+                response_header_str = "GET-RE|%s|%d\n" % (client_header[1], file_size)
+                response_header_bin = response_header_str.encode()
+                response_header_bin += b'\x00' * (header_len - len(response_header_bin))
+                conn.send(response_header_bin)
+                with open(access_path, 'rb') as file:
+                    conn.sendall(file.read())
 
             else:
                 conn.send('服务器已经收到你的信息'.encode())    # 回馈信息给客户端

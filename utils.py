@@ -43,7 +43,7 @@ def handle_remote_dict(local_dict, remote_dict:dict):
                 local_dict[remote_key][INDEX_STATE] = "remote"
                 local_dict[remote_key][INDEX_VER] = remote_record[INDEX_VER]
                 local_dict[remote_key][INDEX_MTIME] = remote_record[INDEX_MTIME]
-            else:
+            elif remote_record[INDEX_VER] == local_dict[remote_key][INDEX_VER]:
                 # Acknowledge the sync status
                 if local_dict[remote_key][INDEX_STATE] == "local" and remote_record[INDEX_STATE] == 'local':
                     local_dict[remote_key][INDEX_STATE] = "sync"
