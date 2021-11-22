@@ -25,7 +25,7 @@ with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") a
 sk = socket.socket()            # 创建套接字
 sk.bind(ip_port)                # 绑定服务地址
 sk.listen(5)                    # 监听连接请求
-print('启动socket服务，等待客户端连接...')
+print('Server: Waiting for the client...')
 
 while True:
     conn, address = sk.accept()  # 等待连接，此处自动阻塞
@@ -34,7 +34,7 @@ while True:
 
             client_header_bin = conn.recv(header_len)
             client_header = client_header_bin.decode().splitlines()[0].split()
-            print("客户端%s的请求头为：%s" % (address, str(client_header)))
+            print("Server: Client %s requests with header：%s" % (address, str(client_header)))
             if client_header[0] == "SYNC":
                 # Receive message
                 client_msg_len = int(client_header[1])
@@ -45,7 +45,7 @@ while True:
                     client_msg += chunk
                     received_len += len(chunk)
                 client_dict = str_to_dict(client_msg.decode())
-                print("消息长度：%d, 消息数据：\n%s" % (client_msg_len, client_msg.decode()))
+                print("Server: The client sent the following massages with length %d:\n%s" % (client_msg_len, client_msg.decode()))
 
                 # Handle request
                 scan_file(file_dict, share_root, '.')
@@ -67,7 +67,6 @@ while True:
                 file_key = os.path.normpath(client_header[1])
                 access_path = os.path.join(share_root, client_header[1])
                 file_size = int(client_header[2])
-                status = ''
 
                 received_len = 0
                 if not os.path.exists(os.path.split(access_path)[0]):
@@ -79,24 +78,18 @@ while True:
                         f.write(chunk)
                         if len(chunk) == 0:
                             print("Server: Error: Received length is zero!")
-                md5_remote = get_file_md5(access_path + ".downloading")
-                if md5_remote == file_dict[file_key][INDEX_MD5]:
-                    status = 'OK'
-                    print("文件 %s 获取成功" % (access_path))
-                    if os.path.exists(access_path):
-                        os.remove(access_path)
-                    os.rename(access_path + ".downloading", access_path)
-                    file_dict[file_key][INDEX_STATE] = "sync"
-                    with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
-                        f.write(role + '\n')
-                        f.write(dict_to_str(file_dict))
-                else:
-                    status = 'FAIL'
-                    print("文件 %s MD5对比失败" % (access_path))
-                    os.remove(access_path + ".downloading")
+                print("Server: Successfully received file %s with size %d bytes." % (access_path, file_size))
+                if os.path.exists(access_path):
+                    os.remove(access_path)
+                os.rename(access_path + ".downloading", access_path)
+                file_dict[file_key][INDEX_STATE] = "sync"
+                file_dict[file_key][INDEX_MTIME] = int(os.path.getmtime(access_path) * 1000)
+                with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
+                    f.write(role + '\n')
+                    f.write(dict_to_str(file_dict))
 
                 # Response to client
-                response_str = "POST-RE %s %s\n" % (client_header[0], status)
+                response_str = "POST-RE %s %s\n" % (client_header[0], "OK")
                 response_bin = response_str.encode()
                 response_bin += b'\x00' * (header_len - len(response_bin))
                 conn.send(response_bin)
