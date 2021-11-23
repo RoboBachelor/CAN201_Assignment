@@ -89,12 +89,13 @@ def server_app(dict_in:dict, share:str):
     file_dict = dict_in
     share_root = share
 
-    listening_socket = ('127.0.0.1', 20080)
+    listening_socket = ("0.0.0.0", 20080)
     sk = socket.socket()            # Create the socket
     sk.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sk.bind(listening_socket)      # Bind the IP and port
     sk.listen(5)                    # Listening for connections
     print('Server: Waiting for the client...')
+    print("Server: Hostname: %s" % "0.0.0.0")
 
     while True:
         conn, address = sk.accept()  # 等待连接，此处自动阻塞
@@ -107,7 +108,7 @@ def server_app(dict_in:dict, share:str):
                     print("Server: Received length from client %s is zero." % str(address))
                     break
                 client_header = client_header_bin.decode().splitlines()[0].split('|')
-                print("Server: Client %s requests with header：%s" % (address, str(client_header)))
+                print("Server: Client %s requests with header: %s" % (address, str(client_header)))
 
                 if client_header[0] == "SYNC":
                     server_SYNC_handler(conn, client_header)

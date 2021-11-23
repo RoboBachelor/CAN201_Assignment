@@ -24,7 +24,7 @@ if __name__ == '__main__':
         file_dict = str_to_dict(file_dict_str)
         print("Who am I:", role)
     else:
-        print("Who am I: Checking.")
+        print("Who am I: Test connect to %s" % str(ip_port))
         try:
             test_sock = socket.socket()
             test_sock.connect(ip_port)
