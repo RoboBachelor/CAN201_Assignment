@@ -1,14 +1,18 @@
 from client import *
 from server import *
 
+def _argparse():
+    parser = argparse.ArgumentParser(description="Please specify the remote IP addr and local share root.")
+    parser.add_argument('--ip', action='store', required=False, default="127.0.0.1",
+                        dest='ip', help='Specify the remote IP address, default: 127.0.0.1')
+    parser.add_argument('--root', action='store', required=False, default="./share",
+                        dest='root', help='Specify the share dir, default: ./share')
+    return parser.parse_args()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("root", type=str, help="Shared dir")
-    args = parser.parse_args()
+    args = _argparse()
     share_root = args.root
-
-    remote_ip = "127.0.0.1"
+    remote_ip = args.ip
     ip_port = (remote_ip, 20080)
     file_dict = dict()
 
