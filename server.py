@@ -75,7 +75,7 @@ def server_POST_handler(conn:socket, client_header:list):
         f.write(dict_to_str(file_dict))
 
     # Response to client
-    response_str = "POST-RE|%s|%s\n" % (client_header[0], "OK")
+    response_str = "POST-RE|%s|%s\n" % (client_header[1], "OK")
     response_bin = response_str.encode()
     response_bin += b'\x00' * (header_len - len(response_bin))
     conn.send(response_bin)

@@ -26,14 +26,12 @@ if __name__ == '__main__':
             test_sock.connect(ip_port)
             print("Who am I: Client.")
             role = "client"
-            share_root = ".\share_client"
             test_sock.close()
 
         except Exception as e:
             print("Who am I:", repr(e))
             print("Who am I: Server.")
             role = "server"
-            share_root = ".\share_server"
 
         print("Who am I: Creating new repository.")
         scan_file(file_dict, share_root, '.')
