@@ -22,16 +22,18 @@ def client_sync(sock:socket):
 
     # Response
     server_header = sock.recv(header_len).decode().splitlines()[0].split('|')
+    if len(server_header) == 0:
+        return
     server_msg = b''
     if server_header[0] == "SYNC-RE":
         server_msg_len = int(server_header[1])
         received_len = 0
         while received_len < server_msg_len:
             chunk = sock.recv(min(server_msg_len - received_len, chunk_len))
+            if len(chunk) == 0:
+                raise ConnectionError("Received length is zero while receiving remote file list.")
             server_msg += chunk
             received_len += len(chunk)
-            if len(chunk) == 0:
-                print("Client: Error: Received length is zero!")
         server_dict = str_to_dict(server_msg.decode())
         print("Client: Response header for SYNC from the server is: %s" % (str(server_header)))
         # print("Client: Response len is %d, message is:\n%s" % (server_msg_len, str(server_dict)))
@@ -47,12 +49,19 @@ def client_sendall(sock:socket):
     for file_key, file_record in file_dict.items():
         if file_record[INDEX_STATE] == "local":
             # Request header and content
-            request_str = "POST|%s|%d\n" % (file_record[INDEX_KEY], os.path.getsize(os.path.join(share_root, file_key)))
+            file_size = os.path.getsize(os.path.join(share_root, file_key))
+            sent_size = 0
+            request_str = "POST|%s|%d\n" % (file_record[INDEX_KEY], file_size)
             request_bin = request_str.encode()
             request_bin += b'\x00' * (header_len - len(request_bin))
             sock.send(request_bin)
             with open(os.path.join(share_root, file_key), 'rb') as file:
-                sock.sendall(file.read())
+                while sent_size < file_size:
+                    chunk = file.read(min(file_size - sent_size, chunk_len))
+                    sock.send(chunk)
+                    sent_size += len(chunk)
+            if file_size != os.path.getsize(os.path.join(share_root, file_key)):
+                print("Client: File size changed while sending!")
 
             # Response
             server_header = sock.recv(header_len).decode().splitlines()[0].split('|')
@@ -75,6 +84,8 @@ def client_getall(sock:socket):
 
             # Response header
             server_header = sock.recv(header_len).decode().splitlines()[0].split('|')
+            if len(server_header) == 0:
+                return
             file_size = int(server_header[2])
 
             # Response message
@@ -84,10 +95,10 @@ def client_getall(sock:socket):
             with open(access_path + ".downloading", "wb") as f:
                 while received_len < file_size:
                     chunk = sock.recv(min(file_size - received_len, chunk_len))
+                    if len(chunk) == 0:
+                        raise ConnectionError("Received length is zero while receiving file %s" % file_key)
                     received_len += len(chunk)
                     f.write(chunk)
-                    if len(chunk) == 0:
-                        print("Client: Error: Received length is zero!")
             print("Client: Successfully received file %s with size %d bytes." % (access_path, file_size))
             if os.path.exists(access_path):
                 os.remove(access_path)
@@ -122,50 +133,7 @@ def client_app(server_ip_port, dict_in:dict, share:str):
             sock.close()
 
         except Exception as e:
+            sock.close()
             print("Client:", repr(e))
             print("Client: Something Error. Waiting for 1 sec and connect again.")
             time.sleep(1)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("root", type=str, help="Shared dir")
-    args = parser.parse_args()
-    share_root = args.root
-
-    remote_ip = "127.0.0.1"
-    ip_port = (remote_ip, 20080)
-
-    if os.path.exists(os.path.join(share_root, ".filelist.can201")):
-        # Filelist exists.
-        with open(os.path.join(share_root, ".filelist.can201"), encoding="utf-8") as f:
-            role = f.readline().strip()
-            file_dict_str = f.read()
-        file_dict = str_to_dict(file_dict_str)
-        print("Who am I:", role)
-    else:
-        print("Who am I: Checking.")
-        try:
-            test_sock = socket.socket()
-            test_sock.connect(ip_port)
-            print("Who am I: Client.")
-            role = "client"
-            share_root = ".\share_client"
-            test_sock.close()
-
-        except Exception as e:
-            print("Who am I:", repr(e))
-            print("Who am I: Server.")
-            role = "server"
-            share_root = ".\share_server"
-
-        print("Who am I: Creating new repository.")
-        scan_file(file_dict, share_root, '.')
-        with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
-            f.write(role + '\n')
-            f.write(dict_to_str(file_dict))
-
-    if role == "client":
-        client_app(ip_port)
-    elif role == "server":
-        server_app()
