@@ -1,9 +1,7 @@
-import os
-
 from utils import *
 
 role = "client"
-share_root = ".\share_client"
+share_root = "unknown"
 file_dict = dict()
 
 def client_sync(sock:socket):
@@ -35,15 +33,15 @@ def client_sync(sock:socket):
             if len(chunk) == 0:
                 print("Client: Error: Received length is zero!")
         server_dict = str_to_dict(server_msg.decode())
-        print("服务器的响应头为：%s" % (str(server_header)))
-        print("消息长度：%d, 消息数据：\n%s" % (server_msg_len, str(server_dict)))
+        print("Client: Response header for SYNC from the server is: %s" % (str(server_header)))
+        # print("Client: Response len is %d, message is:\n%s" % (server_msg_len, str(server_dict)))
 
         # Handle Response
         handle_remote_dict(file_dict, server_dict)
         with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
             f.write(role + '\n')
             f.write(dict_to_str(file_dict))
-        print("本地数据：\n%s" % (str(file_dict)))
+        # print("Client: Local file dict after handle is:\n%s" % (str(file_dict)))
 
 def client_sendall(sock:socket):
     for file_key, file_record in file_dict.items():
@@ -59,13 +57,11 @@ def client_sendall(sock:socket):
             # Response
             server_header = sock.recv(header_len).decode().splitlines()[0].split('|')
             if server_header[2] == 'OK':
-                print("文件 %s 发送成功" % (server_header[1]))
+                print("Client: File %s has been successfully sent." % (server_header[1]))
                 file_dict[file_key][INDEX_STATE] = "sync"
                 with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
                     f.write(role + '\n')
                     f.write(dict_to_str(file_dict))
-            if server_header[2] == 'FAIL':
-                print("文件 %s 发送失败" % (server_header[1]))
 
 def client_getall(sock:socket):
     for file_key, file_record in file_dict.items():
@@ -103,24 +99,18 @@ def client_getall(sock:socket):
                 f.write(dict_to_str(file_dict))
 
 
-def client_app(ip_port):
+def client_app(server_ip_port, dict_in:dict, share:str):
 
-    global role, file_dict
-
-    if os.path.exists(os.path.join(share_root, ".filelist.can201")):
-        with open(os.path.join(share_root, ".filelist.can201"), encoding="utf-8") as f:
-            role = f.readline().strip()
-            file_dict_str = f.read()
-        file_dict = str_to_dict(file_dict_str)
-    else:
-        print("Client: New Repository.")
+    global file_dict, share_root
+    file_dict = dict_in
+    share_root = share
 
     # Infinite loop to connect the server
     while True:
 
         try:
             sock = socket.socket()      # Create socket
-            sock.connect(ip_port)       # Connect to the server
+            sock.connect(server_ip_port)       # Connect to the server
             print("Client: Connected to the server.")
 
             # Infinite loop: scan local file and sync with the server
@@ -138,15 +128,44 @@ def client_app(ip_port):
 
 
 if __name__ == '__main__':
-    ip_port = ('127.0.0.1', 9999)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root", type=str, help="Shared dir")
+    args = parser.parse_args()
+    share_root = args.root
 
-    try:
-        testsock = socket.socket()
-        testsock.connect(ip_port)
-        print("Who am I: Client.")
-        testsock.close()
-    except Exception as e:
-        print("Who am I:", repr(e))
-        print("Who am I: Server.")
+    remote_ip = "127.0.0.1"
+    ip_port = (remote_ip, 20080)
 
-    client_app(ip_port)
+    if os.path.exists(os.path.join(share_root, ".filelist.can201")):
+        # Filelist exists.
+        with open(os.path.join(share_root, ".filelist.can201"), encoding="utf-8") as f:
+            role = f.readline().strip()
+            file_dict_str = f.read()
+        file_dict = str_to_dict(file_dict_str)
+        print("Who am I:", role)
+    else:
+        print("Who am I: Checking.")
+        try:
+            test_sock = socket.socket()
+            test_sock.connect(ip_port)
+            print("Who am I: Client.")
+            role = "client"
+            share_root = ".\share_client"
+            test_sock.close()
+
+        except Exception as e:
+            print("Who am I:", repr(e))
+            print("Who am I: Server.")
+            role = "server"
+            share_root = ".\share_server"
+
+        print("Who am I: Creating new repository.")
+        scan_file(file_dict, share_root, '.')
+        with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
+            f.write(role + '\n')
+            f.write(dict_to_str(file_dict))
+
+    if role == "client":
+        client_app(ip_port)
+    elif role == "server":
+        server_app()

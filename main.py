@@ -1,16 +1,48 @@
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+from client import *
+from server import *
 
 
-def print_hi(name, stu_id: int):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Good evening {name} (student id {stu_id}), welcome to CAN201 module!')  # Press Ctrl+F8 to toggle the breakpoint.
-
-
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('Jingyi Wang', 1929591)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root", type=str, help="Shared dir")
+    args = parser.parse_args()
+    share_root = args.root
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    remote_ip = "127.0.0.1"
+    ip_port = (remote_ip, 20080)
+    file_dict = dict()
+
+    if os.path.exists(os.path.join(share_root, ".filelist.can201")):
+        # Filelist exists.
+        with open(os.path.join(share_root, ".filelist.can201"), encoding="utf-8") as f:
+            role = f.readline().strip()
+            file_dict_str = f.read()
+        file_dict = str_to_dict(file_dict_str)
+        print("Who am I:", role)
+    else:
+        print("Who am I: Checking.")
+        try:
+            test_sock = socket.socket()
+            test_sock.connect(ip_port)
+            print("Who am I: Client.")
+            role = "client"
+            share_root = ".\share_client"
+            test_sock.close()
+
+        except Exception as e:
+            print("Who am I:", repr(e))
+            print("Who am I: Server.")
+            role = "server"
+            share_root = ".\share_server"
+
+        print("Who am I: Creating new repository.")
+        scan_file(file_dict, share_root, '.')
+        with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
+            f.write(role + '\n')
+            f.write(dict_to_str(file_dict))
+
+    if role == "client":
+        client_app(ip_port, file_dict, share_root)
+    elif role == "server":
+        server_app(file_dict, share_root)
+

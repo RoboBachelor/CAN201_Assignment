@@ -1,11 +1,10 @@
-import os
-
 from utils import *
 
-share_root = ".\share_server"
 role = "server"
-ip_port = ('127.0.0.1', 9999)
+share_root = "unknown"
+file_dict = dict()
 
+'''
 file_dict = dict()
 if os.path.exists(os.path.join(share_root, ".filelist.can201")):
     with open(os.path.join(share_root, ".filelist.can201"), 'r', encoding="utf-8") as f:
@@ -20,6 +19,7 @@ file_dict_str = dict_to_str(file_dict)
 with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
     f.write(role + '\n')
     f.write(file_dict_str)
+'''
 
 def server_SYNC_handler(conn:socket, client_header:list):
     # Receive message
@@ -93,10 +93,15 @@ def server_GET_handler(conn:socket, client_header:list):
     with open(access_path, 'rb') as file:
         conn.sendall(file.read())
 
-def server_app():
-    sk = socket.socket()            # 创建套接字
-    sk.bind(ip_port)                # 绑定服务地址
-    sk.listen(5)                    # 监听连接请求
+def server_app(dict_in:dict, share:str):
+    global file_dict, share_root
+    file_dict = dict_in
+    share_root = share
+
+    listening_socket = ('127.0.0.1', 20080)
+    sk = socket.socket()            # Create the socket
+    sk.bind(listening_socket)      # Bind the IP and port
+    sk.listen(5)                    # Listening for connections
     print('Server: Waiting for the client...')
 
     while True:
