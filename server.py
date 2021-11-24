@@ -22,9 +22,7 @@ def server_SYNC_handler(conn:socket, client_header:list):
     scan_file(file_dict, share_root, '.')
     handle_remote_dict(file_dict, client_dict)
     file_dict_str = dict_to_str(file_dict)
-    with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
-        f.write(role + '\n')
-        f.write(file_dict_str)
+    save_file_dict(share_root, role, file_dict)
 
     # Response to client
     response_bin = file_dict_str.encode()
@@ -39,25 +37,11 @@ def server_POST_handler(conn:socket, client_header:list):
     access_path = os.path.join(share_root, client_header[1])
     file_size = int(client_header[2])
 
-    received_len = 0
-    if not os.path.exists(os.path.split(access_path)[0]):
-        os.makedirs(os.path.split(access_path)[0])
-    with open(access_path + ".downloading", "wb") as f:
-        while received_len < file_size:
-            chunk = conn.recv(min(file_size - received_len, chunk_size))
-            if len(chunk) == 0:
-                raise ConnectionError("Received length is zero while receiving file %s" % file_key)
-            received_len += len(chunk)
-            f.write(chunk)
+    recv_file(conn, access_path, file_size)
     print("Server: Successfully received file %s with size %d bytes." % (access_path, file_size))
-    if os.path.exists(access_path):
-        os.remove(access_path)
-    os.rename(access_path + ".downloading", access_path)
     file_dict[file_key][STATE] = "sync"
     file_dict[file_key][MTIME] = int(os.path.getmtime(access_path) * 1000)
-    with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
-        f.write(role + '\n')
-        f.write(dict_to_str(file_dict))
+    save_file_dict(share_root, role, file_dict)
 
     # Response to client
     response_str = "POST-RE|%s|%s\n" % (client_header[1], "OK")

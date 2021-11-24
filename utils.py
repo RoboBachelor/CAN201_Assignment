@@ -73,6 +73,27 @@ def str_to_dict(in_str:str):
     return ret_dict
 
 
+def recv_file(sock: socket, access_path, file_size):
+    received_len = 0
+    if not os.path.exists(os.path.split(access_path)[0]):
+        os.makedirs(os.path.split(access_path)[0])
+    with open(access_path + ".downloading", "wb") as f:
+        while received_len < file_size:
+            chunk = sock.recv(min(file_size - received_len, chunk_size))
+            if len(chunk) == 0:
+                raise ConnectionError("Received length is zero while receiving file %s" % access_path)
+            received_len += len(chunk)
+            f.write(chunk)
+    if os.path.exists(access_path):
+        os.remove(access_path)
+    os.rename(access_path + ".downloading", access_path)
+
+
+def save_file_dict(share_root, role, file_dict):
+    with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
+        f.write(role + '\n')
+        f.write(dict_to_str(file_dict))
+
 '''
 def get_file_md5(fname):
     m = hashlib.md5()   #创建md5对象

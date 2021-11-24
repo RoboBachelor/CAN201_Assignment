@@ -40,9 +40,7 @@ def client_sync(sock:socket):
 
         # Handle Response
         handle_remote_dict(file_dict, server_dict)
-        with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
-            f.write(role + '\n')
-            f.write(dict_to_str(file_dict))
+        save_file_dict(share_root, role, file_dict)
         # print("Client: Local file dict after handle is:\n%s" % (str(file_dict)))
 
 def client_sendall(sock:socket):
@@ -68,9 +66,7 @@ def client_sendall(sock:socket):
             if server_header[2] == 'OK':
                 print("Client: File %s has been successfully sent." % (server_header[1]))
                 file_dict[file_key][STATE] = "sync"
-                with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
-                    f.write(role + '\n')
-                    f.write(dict_to_str(file_dict))
+                save_file_dict(share_root, role, file_dict)
 
 def client_getall(sock:socket):
     for file_key, file_record in file_dict.items():
@@ -89,26 +85,11 @@ def client_getall(sock:socket):
             file_size = int(server_header[2])
 
             # Response message
-            received_len = 0
-            if not os.path.exists(os.path.split(access_path)[0]):
-                os.makedirs(os.path.split(access_path)[0])
-            with open(access_path + ".downloading", "wb") as f:
-                while received_len < file_size:
-                    chunk = sock.recv(min(file_size - received_len, chunk_size))
-                    if len(chunk) == 0:
-                        raise ConnectionError("Received length is zero while receiving file %s" % file_key)
-                    received_len += len(chunk)
-                    f.write(chunk)
+            recv_file(sock, access_path, file_size)
             print("Client: Successfully received file %s with size %d bytes." % (access_path, file_size))
-            if os.path.exists(access_path):
-                os.remove(access_path)
-            os.rename(access_path + ".downloading", access_path)
             file_dict[file_key][STATE] = "sync"
             file_dict[file_key][MTIME] = int(os.path.getmtime(access_path) * 1000)
-            with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
-                f.write(role + '\n')
-                f.write(dict_to_str(file_dict))
-
+            save_file_dict(share_root, role, file_dict)
 
 def client_app(server_ip_port, dict_in:dict, share:str):
 
@@ -132,7 +113,7 @@ def client_app(server_ip_port, dict_in:dict, share:str):
                 client_sync(sock)
                 client_sendall(sock)
                 client_getall(sock)
-                time.sleep(1)
+                time.sleep(0.1)
             sock.close()
 
         except Exception as e:
