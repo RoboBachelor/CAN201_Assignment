@@ -10,7 +10,7 @@ def server_SYNC_handler(conn:socket, client_header:list):
     client_msg = b''
     received_len = 0
     while received_len < client_msg_len:
-        chunk = conn.recv(min(client_msg_len - received_len, chunk_len))
+        chunk = conn.recv(min(client_msg_len - received_len, chunk_size))
         if len(chunk) == 0:
             raise ConnectionError("Received length is zero while receiving remote file list.")
         client_msg += chunk
@@ -30,7 +30,7 @@ def server_SYNC_handler(conn:socket, client_header:list):
     response_bin = file_dict_str.encode()
     response_header_str = "SYNC-RE|%d\n" % (len(response_bin))
     response_header_bin = response_header_str.encode()
-    response_header_bin += b'\x00' * (header_len - len(response_header_bin))
+    response_header_bin += b'\x00' * (header_size - len(response_header_bin))
     conn.send(response_header_bin)
     conn.sendall(response_bin)
 
@@ -44,7 +44,7 @@ def server_POST_handler(conn:socket, client_header:list):
         os.makedirs(os.path.split(access_path)[0])
     with open(access_path + ".downloading", "wb") as f:
         while received_len < file_size:
-            chunk = conn.recv(min(file_size - received_len, chunk_len))
+            chunk = conn.recv(min(file_size - received_len, chunk_size))
             if len(chunk) == 0:
                 raise ConnectionError("Received length is zero while receiving file %s" % file_key)
             received_len += len(chunk)
@@ -53,8 +53,8 @@ def server_POST_handler(conn:socket, client_header:list):
     if os.path.exists(access_path):
         os.remove(access_path)
     os.rename(access_path + ".downloading", access_path)
-    file_dict[file_key][INDEX_STATE] = "sync"
-    file_dict[file_key][INDEX_MTIME] = int(os.path.getmtime(access_path) * 1000)
+    file_dict[file_key][STATE] = "sync"
+    file_dict[file_key][MTIME] = int(os.path.getmtime(access_path) * 1000)
     with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
         f.write(role + '\n')
         f.write(dict_to_str(file_dict))
@@ -62,7 +62,7 @@ def server_POST_handler(conn:socket, client_header:list):
     # Response to client
     response_str = "POST-RE|%s|%s\n" % (client_header[1], "OK")
     response_bin = response_str.encode()
-    response_bin += b'\x00' * (header_len - len(response_bin))
+    response_bin += b'\x00' * (header_size - len(response_bin))
     conn.send(response_bin)
 
 def server_GET_handler(conn:socket, client_header:list):
@@ -74,11 +74,11 @@ def server_GET_handler(conn:socket, client_header:list):
     # Request header and content
     response_header_str = "GET-RE|%s|%d\n" % (client_header[1], file_size)
     response_header_bin = response_header_str.encode()
-    response_header_bin += b'\x00' * (header_len - len(response_header_bin))
+    response_header_bin += b'\x00' * (header_size - len(response_header_bin))
     conn.send(response_header_bin)
     with open(access_path, 'rb') as file:
         while sent_size < file_size:
-            chunk = file.read(min(file_size - sent_size, chunk_len))
+            chunk = file.read(min(file_size - sent_size, chunk_size))
             conn.send(chunk)
             sent_size += len(chunk)
             if file_size != os.path.getsize(os.path.join(share_root, file_key)):
@@ -89,21 +89,23 @@ def server_app(dict_in:dict, share:str):
     file_dict = dict_in
     share_root = share
 
+    if not PRINT_DEBUG:
+        sys.stdout = open(os.path.join(share_root, ".log.can201"), "w")
+
     listening_socket = ("0.0.0.0", 20080)
     sk = socket.socket()            # Create the socket
     sk.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sk.bind(listening_socket)      # Bind the IP and port
     sk.listen(5)                    # Listening for connections
-    print('Server: Waiting for the client...')
-    print("Server: Hostname: %s" % "0.0.0.0")
 
     while True:
+        print('Server: Waiting for the client...')
         conn, address = sk.accept()  # 等待连接，此处自动阻塞
         print("Server: Client %s connected." % str(address))
         try:
             while True:     # 一个死循环，直到客户端发送‘exit’的信号，才关闭连接
 
-                client_header_bin = conn.recv(header_len)
+                client_header_bin = conn.recv(header_size)
                 if len(client_header_bin) == 0:
                     print("Server: Received length from client %s is zero." % str(address))
                     break
