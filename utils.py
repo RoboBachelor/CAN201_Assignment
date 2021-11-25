@@ -7,7 +7,7 @@ chunk_size = 1024 * 1024
 
 num_attribute = 4
 KEY, MTIME, STATE, VER = tuple(range(num_attribute))
-PRINT_DEBUG = False
+PRINT_DEBUG = True
 
 def scan_file(file_dict:dict, root, current):
     for file_or_dir in os.listdir(os.path.join(root, current)):
@@ -89,10 +89,31 @@ def recv_file(sock: socket, access_path, file_size):
     os.rename(access_path + ".downloading", access_path)
 
 
-def save_file_dict(share_root, role, file_dict):
-    with open(os.path.join(share_root, ".filelist.can201"), 'w', encoding="utf-8") as f:
+def send_file(sock: socket, access_path, file_size):
+    sent_size = 0
+    with open(access_path, 'rb') as file:
+        while sent_size < file_size:
+            chunk = file.read(min(file_size - sent_size, chunk_size))
+            sock.send(chunk)
+            sent_size += len(chunk)
+
+
+def save_repository(share_root, role, file_dict):
+    with open(os.path.join(share_root, ".repository.can201"), 'w', encoding="utf-8") as f:
         f.write(role + '\n')
         f.write(dict_to_str(file_dict))
+
+
+def recv_dict(sock: socket, content_len):
+    dict_msg = b''
+    received_len = 0
+    while received_len < content_len:
+        chunk = sock.recv(min(content_len - received_len, chunk_size))
+        if len(chunk) == 0:
+            raise ConnectionError("Received length is zero while receiving remote file list.")
+        dict_msg += chunk
+        received_len += len(chunk)
+    return str_to_dict(dict_msg.decode())
 
 '''
 def get_file_md5(fname):
