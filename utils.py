@@ -94,7 +94,7 @@ def send_file(sock: socket, access_path, file_size):
     with open(access_path, 'rb') as file:
         while sent_size < file_size:
             chunk = file.read(min(file_size - sent_size, chunk_size))
-            sock.send(chunk)
+            sock.sendall(chunk)
             sent_size += len(chunk)
 
 

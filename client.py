@@ -23,11 +23,14 @@ def client_sync(sock: socket):
     request_str = "SYNC|%d\n" % (msg_len)
     request_bin = request_str.encode()
     request_bin += b'\x00' * (header_size - len(request_bin))
-    sock.send(request_bin)
+    sock.sendall(request_bin)
     sock.sendall(msg_bin)
 
     # Get response from server.
-    server_header = sock.recv(header_size).decode().splitlines()[0].split('|')
+    server_header_bin = sock.recv(header_size)
+    if len(server_header_bin) != header_size:
+        raise ConnectionError("Received header length %d does not equal %d bytes" % (len(server_header_bin), header_size))
+    server_header = server_header_bin.decode().splitlines()[0].split('|')
     if len(server_header) == 0:
         return
     if server_header[0] == "SYNC-RE":
@@ -55,12 +58,12 @@ def client_sendall(sock: socket):
             request_str = "POST|%s|%d\n" % (file_record[KEY], file_size)
             request_bin = request_str.encode()
             request_bin += b'\x00' * (header_size - len(request_bin))
-            sock.send(request_bin)
+            sock.sendall(request_bin)
 
             send_file(sock, access_path, file_size)
             # We can detect whether we sent a file which is still writing to the local shared dir.
             if file_size != os.path.getsize(os.path.join(share_root, file_key)):
-                print("Client: File size changed while sending!")
+                print("Client: Warning: File size changed while sending!")
 
             # Response form the server.
             server_header = sock.recv(header_size).decode().splitlines()[0].split('|')
@@ -83,7 +86,7 @@ def client_getall(sock:socket):
             request_str = "GET|%s\n" % (file_record[KEY])
             request_bin = request_str.encode()
             request_bin += b'\x00' * (header_size - len(request_bin))
-            sock.send(request_bin)
+            sock.sendall(request_bin)
 
             # Response header
             server_header = sock.recv(header_size).decode().splitlines()[0].split('|')

@@ -28,7 +28,7 @@ def server_SYNC_handler(conn: socket, client_header: list):
     response_header_str = "SYNC-RE|%d\n" % (len(response_bin))
     response_header_bin = response_header_str.encode()
     response_header_bin += b'\x00' * (header_size - len(response_header_bin))
-    conn.send(response_header_bin)
+    conn.sendall(response_header_bin)
     conn.sendall(response_bin)
 
 
@@ -53,7 +53,7 @@ def server_POST_handler(conn:socket, client_header:list):
     response_str = "POST-RE|%s|%s\n" % (client_header[1], "OK")
     response_bin = response_str.encode()
     response_bin += b'\x00' * (header_size - len(response_bin))
-    conn.send(response_bin)
+    conn.sendall(response_bin)
 
 
 def server_GET_handler(conn:socket, client_header:list):
@@ -71,12 +71,12 @@ def server_GET_handler(conn:socket, client_header:list):
     response_header_str = "GET-RE|%s|%d\n" % (client_header[1], file_size)
     response_header_bin = response_header_str.encode()
     response_header_bin += b'\x00' * (header_size - len(response_header_bin))
-    conn.send(response_header_bin)
+    conn.sendall(response_header_bin)
 
     # Send the requested file
     send_file(conn, access_path, file_size)
     if file_size != os.path.getsize(os.path.join(share_root, file_key)):
-        print("Server: File size changed while sending!")
+        print("Server: Warning: File size changed while sending!")
 
 
 def server_app(dict_in:dict, share:str):
@@ -114,9 +114,9 @@ def server_app(dict_in:dict, share:str):
             while True:
                 # First, receive the application layer header from the client.
                 client_header_bin = conn.recv(header_size)
-                if len(client_header_bin) == 0:
-                    print("Server: Received length from client %s is zero." % str(address))
-                    break
+                if len(client_header_bin) != header_size:
+                    raise ConnectionError(
+                        "Received header length %d does not equal %d bytes" % (len(client_header_bin), header_size))
                 client_header = client_header_bin.decode().splitlines()[0].split('|')
                 print("Server: Client %s requests with header: %s" % (address, str(client_header)))
 
